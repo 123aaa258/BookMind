@@ -58,22 +58,22 @@ AI 引导组员按下面编号逐个推进，**每次只做 1 个小 PR**，严�
 > - **推荐视觉方向**：打造 **[React Bits](https://reactbits.dev/) 风格的现代高质感网页**（如精致的 Spotlight/Tilted 书架卡片、丝滑导航切换、克制的微光/网格背景与流畅文字动效）+ **Grok Bot 风格的 AI 伴读吉祥物**（在伴读助手入口或回答区域设计一个有辨识度、带待机/思考动效的极简 AI 伴读机器人形象，可呼应 BookMind 书本星火 Logo）；
 > - **AI 协作方式**：当 Role 1 认领角色后，AI 应主动先询问他偏好的视觉主题、想选用的组件库/React Bits 组件，再按下面参考粒度拆成小 PR 推进（可按创意自由微调拆分）：
 
-- **`PR-F1` 视觉底座与个人书架**：搭好组件/样式体系（如 React Bits + 图标/Tailwind），对接 `GET /api/books` 与 `POST /api/library/scan`，实现高质感书架展示（封面/作者/格式徽章/筛选与空态），补 Vitest 单测。
-- **`PR-F2` 沉浸式在线章节阅读器**：对接 `GET /api/books/{id}/chapters` 与正文接口，实现目录切换、阅读进度/书签、以及按 `locator` + 关键词定位高亮。
-- **`PR-F3` Grok Bot 风格 AI 伴读与原文溯源跳转**：对接 `POST /api/rag/ask` 与 `GET /api/rag/search`，打造带吉祥物交互的伴读体验，**严格分区展示「模型回答」与「书籍原文证据卡片」**，实现点击 `[1]` 引用直达阅读器对应章节，优雅展示 `LLM_NOT_CONFIGURED` / 上游错误引导；补 Vitest 单测。
-- **`PR-F4` 插件状态面板与全站体验打磨**：对接 `GET /api/plugins`，直观展示内置与外部 `plugins/` 插件状态（ACTIVE / DISABLED / INCOMPATIBLE / FAILED）与隔离诊断信息，完善动效与响应式细节。
+- **`PR-F1` 视觉底座与个人书架**：搭好组件/样式体系（如 React Bits + 图标/Tailwind），对接 `GET /api/books`（支持筛选）、`POST /api/books/upload`（网页拖拽上传 TXT/PDF）、`DELETE /api/books/{id}`、`POST /api/library/scan` 与 `GET /api/library/status`（损坏文件诊断提醒），实现高质感书架展示与空态，补 Vitest 单测。
+- **`PR-F2` 沉浸式在线章节阅读器**：对接 `GET /api/books/{id}`、`GET /api/books/{id}/chapters` 与正文接口，实现目录切换、基于 `localStorage` 的书签/阅读进度记忆，以及按 `locator` + 关键词定位高亮。
+- **`PR-F3` Grok Bot 风格流式 AI 伴读与原文溯源跳转**：对接 **`POST /api/rag/ask/stream`（Streamable HTTP / SSE over HTTP/1.1，使用 `fetch` + `ReadableStream` 解析 `citations`/`delta`/`done`/`error` 事件，支持 `history` 多轮追问）** 与 `GET /api/rag/search`，打造带吉祥物交互的打字机流式伴读体验，**严格分区展示「模型回答」与「书籍原文证据卡片」**，实现点击 `[1]` 引用直达阅读器对应章节，统一拦截 `ApiErrorResponse` 优雅展示 `LLM_NOT_CONFIGURED` / 上游错误引导；补 Vitest 单测。
+- **`PR-F4` 插件状态面板与全站体验打磨**：对接 `GET /api/plugins` 与 `GET /api/health`（展示模型名徽章），直观展示内置与外部 `plugins/` 插件状态（ACTIVE / DISABLED / INCOMPATIBLE / FAILED）与隔离诊断信息，完善动效与响应式细节。
 
 ### Role 2（RAG：`book-rag/`）
 - **`PR-R1` 章节切片器（`ChapterChunker`）**：参考 LangChain4j `DocumentSplitter`，实现带 `chunkSize` 与 `overlap` 的章节/页切片，保留 `bookId`/`chapterIndex`/`locator`，补齐空文本/超短/超长边界单测。
 - **`PR-R2` Apache Lucene BM25 索引与检索**：实现 `LuceneBookIndex`（中文分词 + BM25 评分、按 `bookId` 增删改、高亮片段提取），编写**精确断言测试**（断言命中书名、章节 locator 与相关性排序）及**故意引入小错误（Mutation Demo）**示例。
-- **`PR-R3` OpenAI 兼容客户端与伴读编排**：用 JDK 21 原生 `HttpClient` 实现 `OpenAiChatClient` + `DefaultRagService`（强约束 Prompt 注入 `[1][2]` 引用、严格分离 `answer` 与 `citations`、规范映射 `LLM_NOT_CONFIGURED`/429/500/超时/畸形 JSON）；用测试桩 `MockOpenAiServer` 编写全覆盖单测。
+- **`PR-R3` OpenAI 兼容客户端与 Streamable HTTP 流式伴读编排**：用 JDK 21 原生 `HttpClient` 实现 `OpenAiChatClient` + `DefaultRagService`：同时支持非流式 `ask(RagAskRequest)` 与流式 `askStream(RagAskRequest, RagStreamListener)`（请求 OpenAI `"stream": true` 并用 `BodyHandlers.ofLines()` 逐行推送 `delta`，支持 `history` 多轮上下文、强制 `[1][2]` 引用、规范映射 `LLM_NOT_CONFIGURED`/429/500/超时/畸形 JSON）；用测试桩 `MockOpenAiServer` 编写同步与 SSE 流式全覆盖单测。
 - **`PR-R4` Spring 自动装配桥接与边界加固**：向 `book-server` 暴露可被自动装配的 `RagService` 配置或工厂方法，补充并发读写/特殊 Lucene 查询字符转义测试。
 
 ### Role 3（图书管理 + Spring Boot 核心 + 插件底座：`book-spi/` `book-tck/` `book-server/`）
 - **`PR-S1` 外部插件隔离加载器（`PluginManager`）**：参考 PF4J，基于 `URLClassLoader`（父加载器显式指定 `BookFormatPlugin.class.getClassLoader()`）+ `ServiceLoader` 扫描外部 `./plugins/*.jar`；实现 `SpiVersion` 兼容校验、配置禁用列表、超时间隔与 `Throwable` 故障隔离沙箱，并编写“坏插件测试桩”单测。
 - **`PR-S2` 内置 TXT 智能分章解析器**：实现 `TxtBookFormatPlugin`（UTF-8/GBK 编码容错 + 中英文章节正则切分），**继承 `book-tck` 通过全部契约测试**。
-- **`PR-S3` 书库扫描与轻量持久化（参考 Komga）**：扫描 `bookmind.library-dir`，按文件变更调度内置/外部插件解析、记录损坏文件诊断信息、持久化元数据（本地 JSON/嵌入式存储），并在扫描/变更时同步调用 `RagService.indexBook / removeBook`。
-- **`PR-S4` 完整 REST API 与全局异常处理**：提供 `/api/books`、`/api/books/{id}/chapters`、`/api/books/{id}/cover`、`/api/library/scan`、`/api/plugins`、`/api/rag/search`、`/api/rag/ask` 接口，统一映射 `PluginException` 与 `RagException` 为结构化 JSON 错误响应，补全 `MockMvc` 测试。
+- **`PR-S3` 书库扫描、上传/删除与轻量持久化（参考 Komga）**：扫描 `bookmind.library-dir`，支持上传新书保存至书库与删除书籍、记录损坏/隔离文件诊断信息（供 `/api/library/status` 读取）、持久化元数据至 `bookmind.data-dir`，并在新增/变更/删除时同步调用 `RagService.indexBook / removeBook`。
+- **`PR-S4` 完整 14 个 REST 与 Streamable HTTP API**：提供 `/api/books`（含 `?format=&q=`、单书详情 `/{id}`、`POST /upload`、`DELETE /{id}`、章节、封面）、`/api/library/scan` & `/status`、`/api/plugins`、`/api/rag/search`、`/api/rag/ask` 以及 **`POST /api/rag/ask/stream`（基于 Spring MVC `SseEmitter` 桥接 `RagStreamListener`，HTTP/1.1 Chunked + `text/event-stream`）**；配合已建好的 `GlobalExceptionHandler` 输出统一 `ApiErrorResponse`，补全 `MockMvc` 测试。
 
 ### Role 4（独立 PDF 插件 + 黑盒 E2E + CI/CD：`book-plugin-pdf/` `book-e2e-tests/` `.github/`）
 - **`PR-P1` Apache PDFBox 独立解析插件核心**：在 `book-plugin-pdf/` 中实现 `PdfBookFormatPlugin`（提取书名/作者元数据、按 PDF 大纲 Outline 或按页提取文本生成 `Chapter` 与 `page:N` locator、可选首页封面渲染），**继承 `book-tck` 跑通全部契约测试**。

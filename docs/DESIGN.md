@@ -93,7 +93,7 @@ BookMind 采用 **Maven 多模块 + 前后端一体发布** 架构。整个工�
 #### 3.2.3 RAG 切片、检索与伴读编排（`book-rag/src/main/java/io/bookmind/rag/`，计划 PR-R1..R4）
 - `ChapterChunker`：将 `ParsedBook` 中每个 `Chapter` 按固定字符窗口（如 `500` 字）与重叠步长（`overlap = 80` 字）切分为 `TextChunk`，完整保留 `bookId`、`bookTitle`、`chapterIndex`、`chapterTitle` 与 `locator`，防止概念定义恰好落在切分边界被截断。
 - `LuceneBookIndex`：基于 Apache Lucene 9.12（`SmartChineseAnalyzer` 中文分词 + 默认 `BM25Similarity`）在 `bookmind.data-dir/lucene-index` 维护本地全文索引。支持按 `bookId` 幂等更新与删除，查询时对用户输入执行 `QueryParser.escape` 防特殊语法崩溃，返回带评分与原文摘录的 `List<SearchHit>`。
-- `OpenAiChatClient` & `DefaultRagService`：仅通过标准 OpenAI Chat Completions 协议（`POST {baseUrl}/chat/completions`）生成伴读回答，**不提供伪离线拼接回答模式**。`DefaultRagService.ask` 首先调用 `LuceneBookIndex.search` 召回 Top-K 原文证据；若无证据命中则抛出 `NO_EVIDENCE_FOUND`；若未配置 `BOOKMIND_LLM_API_KEY` 则抛出 `LLM_NOT_CONFIGURED`；配置就绪时构造系统提示词强制要求模型仅基于编号证据 `[1]..[K]` 回答并标注引用角标，最终返回将 `answer` 与 `List<Citation>` 物理分字段封装的 `RagAnswer`。
+- `OpenAiChatClient` & `DefaultRagService`：仅通过标准 OpenAI Chat Completions 协议（`POST {baseUrl}/chat/completions`）生成伴读回答，**不提供伪离线拼接回答模式**，同时支持同步 JSON（`ask`）与流式 SSE（`askStream`，请求 `"stream": true` 并借助 `RagStreamListener` 回调向传输层实时推送增量，保持 `book-rag` 零 Spring 依赖）。支持前端传入可选 `history` 实现多轮连续追问；未命中证据抛出 `NO_EVIDENCE_FOUND`，未配置 `BOOKMIND_LLM_API_KEY` 抛出 `LLM_NOT_CONFIGURED`，配置就绪时严格将 `answer` 与 `List<Citation>` 分离输出。
 
 #### 3.2.4 独立 PDF 解析插件（`book-plugin-pdf/src/main/java/io/bookmind/plugin/pdf/`，计划 PR-P1、PR-P2）
 - `PdfBookFormatPlugin`：利用 Apache PDFBox 3（`Loader.loadPDF`）打开本地 PDF，优先读取 `PDDocumentInformation` 标题/作者与 `PDDocumentOutline` 目录书签（无书签时按页生成 `第 N 页` 章节与 `page:N` locator），调用 `PDFTextStripper` 提取可选中文本，必要时借助 `PDFRenderer` 渲染首页缩略封面（`image/png`）。
@@ -217,19 +217,58 @@ shasum -a 256 book-server/target/book-server-0.1.0-SNAPSHOT.jar
 
 ## 6. 数据与配置
 
-### 6.1 核心 REST API 契约（供前端与后端并行联调）
+### 6.1 核心 REST 与 Streamable HTTP API 契约（共 14 个接口）
 
 | 接口 | 方法 | 说明 | 关键响应 / 错误约定 |
 | --- | --- | --- | --- |
-| `/api/health` | `GET` | 服务健康与 SPI 版本探测（**已实现**） | `{ status, service, spiApiVersion, llmConfigured }` |
-| `/api/library/scan` | `POST` | 触发扫描书库目录并同步索引（计划 PR-S3） | `{ scannedCount, indexedCount, failures: [{ file, errorCode, message }] }` |
-| `/api/books` | `GET` | 查询书架列表，支持 `?format=pdf` 筛选（计划 PR-S4） | `[{ id, title, author, format, chapterCount, hasCover }]` |
-| `/api/books/{id}/chapters` | `GET` | 获取目录与章节列表（计划 PR-S4） | `[{ index, title, locator }]` |
+| `/api/health` | `GET` | 服务健康、SPI 版本与脱敏模型名探测（**已实现**） | `{ status, service, spiApiVersion, llmConfigured, llmModel }`（绝不返回 `apiKey`） |
+| `/api/library/status` | `GET` | 查询书库统计、上次扫描时间与损坏/隔离文件列表（计划 PR-S3） | `{ bookCount, lastScanAt, failures: [{ file, errorCode, message }] }` |
+| `/api/library/scan` | `POST` | 手动触发扫描书库目录并同步索引（计划 PR-S3） | `{ scannedCount, indexedCount, failures: [...] }` |
+| `/api/books` | `GET` | 查询书架列表，支持 `?format=pdf&q=关键词` 筛选（计划 PR-S4） | `[{ id, title, author, format, chapterCount, hasCover }]` |
+| `/api/books/upload` | `POST` | `multipart/form-data` 网页上传 TXT/PDF 并立即解析入库与建索引（计划 PR-S4） | 成功返回新书详情；未装插件或损坏返回 `422` + `UNSUPPORTED_FORMAT`/`CORRUPTED_FILE` |
+| `/api/books/{id}` | `GET` | 获取单本书籍详情（含页数/来源插件等 `extraMetadata`）（计划 PR-S4） | `{ id, title, author, language, format, chapterCount, hasCover, extraMetadata }` |
+| `/api/books/{id}` | `DELETE` | 删除书架书籍并同步调用 `RagService.removeBook` 清理索引（计划 PR-S4） | `204 No Content` |
+| `/api/books/{id}/chapters` | `GET` | 获取目录与章节 `locator` 列表（计划 PR-S4） | `[{ index, title, locator }]` |
 | `/api/books/{id}/chapters/{idx}` | `GET` | 获取指定章节正文用于阅读与高亮定位（计划 PR-S4） | `{ index, title, locator, content }` |
 | `/api/books/{id}/cover` | `GET` | 返回书籍封面图片二进制流（计划 PR-S4） | `image/png` 或 `image/jpeg`（无封面返回 `404`） |
-| `/api/plugins` | `GET` | 列出内置与外部插件及状态诊断（计划 PR-S4） | `[{ id, name, version, spiApiVersion, builtin, status, extensions, reason }]` |
-| `/api/rag/search` | `GET` | 纯本地 Lucene BM25 跨书检索（计划 PR-S4） | `?q=...&bookId=...&topK=5` → `List<SearchHit>` |
-| `/api/rag/ask` | `POST` | 基于 OpenAI 兼容接口的 RAG 伴读（计划 PR-S4） | `{ question, bookId?, topK? }` → `RagAnswer` 或结构化 `RagErrorCode` |
+| `/api/plugins` | `GET` | 列出内置与外部插件元信息、状态及故障原因（计划 PR-S4） | `[{ id, name, version, spiApiVersion, builtin, status, extensions, reason }]` |
+| `/api/rag/search` | `GET` | 纯本地 Lucene BM25 跨书或单书内检索（计划 PR-S4） | `?q=...&bookId=...&topK=5` → `List<SearchHit>` |
+| `/api/rag/ask` | `POST` | 同步 JSON 版 OpenAI 兼容 RAG 伴读（计划 PR-S4） | `{ question, bookId?, topK?, history? }` → `RagAnswer` |
+| `/api/rag/ask/stream` | `POST` | **Streamable HTTP（HTTP/1.1 Chunked + SSE）流式 RAG 伴读**（计划 PR-S4） | 请求同 `/api/rag/ask`；响应 `Content-Type: text/event-stream;charset=UTF-8`，详见下方事件协议 |
+
+#### 6.1.1 Streamable HTTP（HTTP/1.1 SSE）事件流规范
+
+HTTP/1.1 原生通过 **Chunked Transfer Encoding（分块传输编码）+ `text/event-stream`** 支持流式推送。后端基于 Spring MVC 原生 `SseEmitter` 桥接 `RagStreamListener`（无需引入 WebFlux），前端使用原生 `fetch()` + `response.body.getReader()` 按 `POST` 方式消费流（绕开 `EventSource` 仅支持 `GET` 的限制）。事件推送严格按以下顺序：
+
+```text
+event: citations
+data: [{"refNumber":1,"bookId":"b1","bookTitle":"...","chapterIndex":0,"locator":"page:3","excerpt":"..."}]
+
+event: delta
+data: {"content":"根据书中第 3 页的定义 [1]，"}
+
+event: delta
+data: {"content":"检索增强生成先召回原文再生成回答。"}
+
+event: done
+data: {"model":"gpt-4o-mini"}
+```
+
+- **先推证据、再推流式文字**：毫秒级优先下发 `citations` 事件，前端立即可展示原文引用卡片并支持点击跳转，随后逐块渲染打字机回答；
+- **流前与流中错误分离**：若参数非法、无证据或 `LLM_NOT_CONFIGURED`，在建流前由 `GlobalExceptionHandler` 直接返回标准 `4xx/5xx` JSON；若流式开始后上游断开或超时，下发 `event: error`（`{"code":"LLM_TIMEOUT","message":"..."}`）并安全关闭连接。
+
+#### 6.1.2 统一错误响应体规范（`ApiErrorResponse`）
+
+所有 REST 异常均由已落盘的 `GlobalExceptionHandler` 统一映射为以下 JSON 结构：
+
+```json
+{
+  "code": "LLM_NOT_CONFIGURED",
+  "message": "未检测到环境变量 BOOKMIND_LLM_API_KEY，请配置后重试",
+  "details": { "requiredEnvVar": "BOOKMIND_LLM_API_KEY" },
+  "timestamp": "2026-11-21T12:55:00Z"
+}
+```
 
 ### 6.2 本地存储布局
 
@@ -306,4 +345,4 @@ shasum -a 256 book-server/target/book-server-0.1.0-SNAPSHOT.jar
   1. `book-plugin-pdf` 仅支持包含可选中文本层的标准 PDF，**不支持纯图片扫描版 PDF 的 OCR 识别**；
   2. 新增、替换或禁用 `./plugins/` 目录中的插件后需重启 BookMind 生效；
   3. 当前采用单机本地文件与 Lucene 索引存储，面向个人/小团队离线书库场景，不做多租户鉴权与并发集群部署。
-- **后续演进计划（v0.2+）**：接入 EPUB/Markdown 更多格式插件验证 SPI 长期稳定性；在 `book-rag` 中支持 Lucene BM25 + 向量混合检索（RRF 重排）；支持流式 SSE 输出伴读回答与多轮对话记忆。
+- **后续演进计划（v0.2+）**：接入 EPUB/Markdown 更多格式插件验证 SPI 长期稳定性；在 `book-rag` 中支持 Lucene BM25 + 向量混合检索（RRF 重排）；支持跨设备云端书签同步。

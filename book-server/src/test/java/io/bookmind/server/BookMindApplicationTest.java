@@ -18,11 +18,13 @@ class BookMindApplicationTest {
     private MockMvc mockMvc;
 
     @Test
-    void healthEndpointReturnsSpiVersionAndStatus() throws Exception {
+    void healthEndpointReturnsSpiVersionAndModelMetadataWithoutSecrets() throws Exception {
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))
                 .andExpect(jsonPath("$.service").value("BookMind"))
-                .andExpect(jsonPath("$.spiApiVersion").value("1.0"));
+                .andExpect(jsonPath("$.spiApiVersion").value("1.0"))
+                .andExpect(jsonPath("$.llmModel").value("gpt-4o-mini"))
+                .andExpect(jsonPath("$.apiKey").doesNotExist());
     }
 }

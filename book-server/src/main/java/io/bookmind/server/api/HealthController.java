@@ -22,11 +22,13 @@ public class HealthController {
     public Map<String, Object> health() {
         boolean llmConfigured = properties.getRag().getApiKey() != null
                 && !properties.getRag().getApiKey().isBlank();
+        String llmModel = properties.getRag().getModel() == null ? "" : properties.getRag().getModel();
         return Map.of(
                 "status", "UP",
                 "service", "BookMind",
                 "spiApiVersion", SpiVersion.CURRENT_API_VERSION,
-                "llmConfigured", llmConfigured
+                "llmConfigured", llmConfigured,
+                "llmModel", llmModel
         );
     }
 }

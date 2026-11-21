@@ -1,7 +1,9 @@
 package io.bookmind.rag;
 
+import io.bookmind.rag.model.ChatMessage;
 import io.bookmind.rag.model.Citation;
 import io.bookmind.rag.model.RagAnswer;
+import io.bookmind.rag.model.RagAskRequest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -26,10 +28,49 @@ class RagContractTest {
     }
 
     @Test
-    void bootstrapServiceReportsNotConfiguredError() {
+    void askRequestSupportsOptionalMultiTurnHistory() {
+        RagAskRequest request = new RagAskRequest(
+                "那故障隔离怎么做？",
+                Optional.of("book-1"),
+                5,
+                List.of(
+                        new ChatMessage("user", "什么是插件隔离？"),
+                        new ChatMessage("assistant", "通过独立 URLClassLoader 实现 [1]。")
+                )
+        );
+        assertThat(request.history()).hasSize(2);
+        assertThat(request.bookId()).contains("book-1");
+    }
+
+    @Test
+    void bootstrapServiceReportsNotConfiguredForBothSyncAndStreamAsk() {
         RagService service = new BootstrapRagService();
+        RagAskRequest request = RagAskRequest.simple("什么是 SPI？", Optional.empty(), 5);
+
         assertThat(service.search("test", Optional.empty(), 5)).isEmpty();
-        assertThatThrownBy(() -> service.ask("什么是 SPI？", Optional.empty(), 5))
+        assertThatThrownBy(() -> service.ask(request))
+                .isInstanceOf(RagException.class)
+                .extracting(ex -> ((RagException) ex).errorCode())
+                .isEqualTo(RagErrorCode.LLM_NOT_CONFIGURED);
+
+        RagStreamListener noopListener = new RagStreamListener() {
+            @Override
+            public void onCitations(List<Citation> citations) {
+            }
+
+            @Override
+            public void onDelta(String textDelta) {
+            }
+
+            @Override
+            public void onComplete(String model) {
+            }
+
+            @Override
+            public void onError(RagException error) {
+            }
+        };
+        assertThatThrownBy(() -> service.askStream(request, noopListener))
                 .isInstanceOf(RagException.class)
                 .extracting(ex -> ((RagException) ex).errorCode())
                 .isEqualTo(RagErrorCode.LLM_NOT_CONFIGURED);

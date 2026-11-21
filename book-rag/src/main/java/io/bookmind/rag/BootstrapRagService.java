@@ -1,6 +1,7 @@
 package io.bookmind.rag;
 
 import io.bookmind.rag.model.RagAnswer;
+import io.bookmind.rag.model.RagAskRequest;
 import io.bookmind.rag.model.SearchHit;
 import io.bookmind.spi.ParsedBook;
 
@@ -10,7 +11,8 @@ import java.util.Optional;
 /**
  * Bootstrap placeholder implementation of {@link RagService}.
  *
- * <p>Role 2 replaces this with the real Lucene BM25 + OpenAI-compatible implementation in PR-R1..PR-R3.
+ * <p>Role 2 replaces this with the real Lucene BM25 + OpenAI-compatible (JSON &amp; SSE streaming)
+ * implementation in PR-R1..PR-R4.
  */
 public class BootstrapRagService implements RagService {
 
@@ -30,10 +32,18 @@ public class BootstrapRagService implements RagService {
     }
 
     @Override
-    public RagAnswer ask(String question, Optional<String> optionalBookId, int topK) {
+    public RagAnswer ask(RagAskRequest request) {
         throw new RagException(
                 RagErrorCode.LLM_NOT_CONFIGURED,
                 "RAG engine is not yet configured. Role 2 implements Lucene retrieval and OpenAI-compatible client."
+        );
+    }
+
+    @Override
+    public void askStream(RagAskRequest request, RagStreamListener listener) {
+        throw new RagException(
+                RagErrorCode.LLM_NOT_CONFIGURED,
+                "RAG streaming engine is not yet configured. Set BOOKMIND_LLM_API_KEY after Role 2 PR-R3."
         );
     }
 }

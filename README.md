@@ -96,7 +96,7 @@ java -jar book-server/target/book-server-0.1.0-SNAPSHOT.jar
 打开浏览器访问 `http://localhost:8080`（开发期可在 `frontend/` 执行 `npm run dev` 访问 `http://localhost:5173`，自动代理 `/api` 至 `8080`），访问 `GET http://localhost:8080/api/health` 预期返回：
 
 ```json
-{"status":"UP","service":"BookMind","spiApiVersion":"1.0","llmConfigured":false}
+{"status":"UP","service":"BookMind","spiApiVersion":"1.0","llmConfigured":false,"llmModel":"gpt-4o-mini"}
 ```
 
 > 正式发行物的独立运行命令与 SHA-256 校验记录见仓库外并列的 `release/RELEASE.md`（将在版本冻结发布时生成）。
