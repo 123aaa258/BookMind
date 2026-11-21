@@ -1,0 +1,50 @@
+# Maven & Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+replay_pid*
+
+# Local runtime data & plugin drops (keep samples/, ignore generated indexes/db/jars)
+data/
+plugins/*
+!plugins/.gitkeep
+*.db
+*.mv.db
+*.trace.db
+
+# Frontend / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+book-server/src/main/resources/static/
+npm-debug.log*
+yarn-error.log*
+
+# IDE & OS
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.DS_Store
+Thumbs.db
+
+# Secrets & local env (NEVER commit secrets!)
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.properties
+
+# Python helper caches
+__pycache__/
+*.pyc
+.venv/

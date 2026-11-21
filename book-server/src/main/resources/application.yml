@@ -1,0 +1,17 @@
+server:
+  port: ${BOOKMIND_PORT:8080}
+
+bookmind:
+  library-dir: ${BOOKMIND_LIBRARY_DIR:./samples/books}
+  data-dir: ${BOOKMIND_DATA_DIR:./data}
+  plugins-dir: ${BOOKMIND_PLUGINS_DIR:./plugins}
+  plugin-timeout-ms: ${BOOKMIND_PLUGIN_TIMEOUT_MS:15000}
+  disabled-plugins: []
+  rag:
+    # OpenAI-compatible Chat Completions endpoint (e.g., OpenAI / DeepSeek / Qwen / Ollama)
+    base-url: ${BOOKMIND_LLM_BASE_URL:https://api.openai.com/v1}
+    # NEVER hardcode a real API key here; inject via environment variable only
+    api-key: ${BOOKMIND_LLM_API_KEY:}
+    model: ${BOOKMIND_LLM_MODEL:gpt-4o-mini}
+    timeout-seconds: ${BOOKMIND_LLM_TIMEOUT_SECONDS:30}
+    top-k: ${BOOKMIND_RAG_TOP_K:5}
