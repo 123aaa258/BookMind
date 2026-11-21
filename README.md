@@ -6,6 +6,7 @@
 
 **本地私人电子书库与 AI 伴读服务 · 可扩展 Java 插件化开源工程**
 
+[![CI](https://github.com/LosAveRoad/BookMind/actions/workflows/ci.yml/badge.svg)](https://github.com/LosAveRoad/BookMind/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=flat-square&logo=openjdk&logoColor=white)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Lucene](https://img.shields.io/badge/Apache%20Lucene-9.12-D22128?style=flat-square&logo=apache&logoColor=white)](https://lucene.apache.org/)
@@ -40,7 +41,7 @@
 ### 仓库状态与托管说明
 
 - **当前阶段**：已完成多模块工程脚手架、公开 `book-spi` 契约、`book-tck` 契约测试基类、CI 流水线、系统设计初稿与 4 人小 PR 协作规范（`AGENTS.md`），正按小 PR 节奏持续迭代至 `v0.1.0`。
-- **仓库地址**：`<待推送 GitHub/Gitee 后填入可访问 URL；若无法托管则注明以 ZIP 内 Git 历史及本 README 记录为准>`
+- **仓库地址**：https://github.com/LosAveRoad/BookMind（公开仓库，GitHub Actions CI 与 PR Review 记录均可直接访问核验）
 - **开源借鉴声明**：本项目全部代码由团队原创编写，架构设计借鉴了 [Komga](https://github.com/gotson/komga)（MIT）、[PF4J](https://github.com/pf4j/pf4j)（Apache-2.0）、[Apache Lucene](https://github.com/apache/lucene)（Apache-2.0）与 [LangChain4j](https://github.com/langchain4j/langchain4j)（Apache-2.0），详见 [NOTICE](NOTICE) 与 [设计文档第 2.3 节](docs/DESIGN.md#23-开源架构借鉴与裁剪说明)。
 
 ---
