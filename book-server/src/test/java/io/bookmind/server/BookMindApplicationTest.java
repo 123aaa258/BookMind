@@ -10,7 +10,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "bookmind.library-dir=../samples/books",
+        "bookmind.data-dir=${java.io.tmpdir}/bookmind-app-test-data",
+        "bookmind.plugins-dir=${java.io.tmpdir}/bookmind-app-test-plugins"
+})
 @AutoConfigureMockMvc
 class BookMindApplicationTest {
 
