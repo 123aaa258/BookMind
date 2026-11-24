@@ -44,7 +44,3 @@ Thumbs.db
 application-local.yml
 application-local.properties
 
-# Python helper caches
-__pycache__/
-*.pyc
-.venv/
