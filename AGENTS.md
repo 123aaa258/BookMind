@@ -113,7 +113,7 @@ AI 引导组员按下面编号逐个推进，**每次只做 1 个小 PR**，严�
 ## 4. 文档同步、AI 核验记录与最终发布铁律
 
 1. **AI 核验记录提醒**：每当某个 PR 采纳或修正了关键 AI 建议（例如类加载方式、Lucene 分词/查询转义、PDFBox 异常映射、前端高亮逻辑），AI 应在 PR 总结末尾附上一行备忘，方便组员填入 `README.md` 的「成员贡献与 AI 核验」表（格式：`建议内容 → 采纳/拒绝/修正 → 实际验证方式与结论`）。
-2. **设计文档同步**：凡涉及模块结构、SPI 方法签名、错误码或 REST 接口变更，必须同步更新 `docs/DESIGN.md`，再运行 `uv run --with python-docx --with pillow python3 scripts/generate_design_docx.py` 重新生成 `docs/DESIGN.docx`，确保最终交付物**文码 100% 一致**。
+2. **设计文档同步**：凡涉及模块结构、SPI 方法签名、错误码或 REST 接口变更，必须同步更新 `docs/DESIGN.md` 与 `docs/DESIGN.docx`，确保最终交付物**文码 100% 一致**。
 3. **最终发布防脏工作区顺序（严禁颠倒！）**：
    1. 全部 PR 合并到 `main`，`README.md` 与 `docs/DESIGN.docx` 更新完毕，GitHub Actions CI 跑绿；
    2. 确认 `git status` 完全干净（无未跟踪文件、无未提交改动）；
