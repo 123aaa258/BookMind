@@ -1,0 +1,2 @@
+# Preserve PDF stream lengths and cross-reference offsets on Windows checkouts.
+*.pdf binary
