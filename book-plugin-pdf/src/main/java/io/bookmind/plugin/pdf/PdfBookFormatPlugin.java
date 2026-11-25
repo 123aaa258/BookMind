@@ -9,6 +9,7 @@ import io.bookmind.spi.PluginMetadata;
 import io.bookmind.spi.SpiVersion;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -23,6 +24,7 @@ import org.apache.pdfbox.text.PDFTextStripper;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -66,7 +68,22 @@ public class PdfBookFormatPlugin implements BookFormatPlugin {
         if (filePath == null || !Files.isRegularFile(filePath) || !Files.isReadable(filePath)) {
             throw new PluginException(PluginErrorCode.IO_ERROR, "Cannot read PDF file: " + filePath);
         }
-        try (PDDocument document = Loader.loadPDF(filePath.toFile())) {
+        try (var input = new RandomAccessReadBufferedFile(filePath)) {
+            // PDFBox can recover an intact page tree even when the PDF signature has been destroyed.
+            byte[] header = new byte[8];
+            if (input.read(header, 0, header.length) != header.length
+                    || !new String(header, StandardCharsets.US_ASCII).matches("%PDF-[0-9]\\.[0-9]")) {
+                throw new PluginException(PluginErrorCode.CORRUPTED_FILE, "Invalid PDF header: " + filePath);
+            }
+            input.seek(0);
+            return parseDocument(input, filePath);
+        } catch (IOException ex) {
+            throw new PluginException(PluginErrorCode.IO_ERROR, "Cannot read PDF file: " + filePath, ex);
+        }
+    }
+
+    private ParsedBook parseDocument(RandomAccessReadBufferedFile input, Path filePath) throws PluginException {
+        try (PDDocument document = Loader.loadPDF(input)) {
             if (document.isEncrypted()) {
                 throw new PluginException(PluginErrorCode.ENCRYPTED_DOCUMENT, "PDF is encrypted");
             }
